@@ -52,6 +52,10 @@ else
 protonsdk_version := $(shell grep '^STEAMRT_IMAGE ' Makefile.in|xargs echo|cut -d: -f2)
 endif
 
+ifeq ($(shell uname -s),Darwin)
+CONFIGURE_CMD += --target-os=darwin --target-arch=arm64
+endif
+
 enable_ccache := 1
 ifneq ($(enable_ccache),0)
     CONFIGURE_CMD += --enable-ccache

@@ -21,7 +21,7 @@ fi
 
 sh_quote() {
         local quoted
-        quoted="$(printf '%q ' "$@")"; [[ $# -eq 0 ]] || echo "${quoted:0:-1}";
+        quoted="$(printf '%q ' "$@")"; [[ $# -eq 0 ]] || echo "${quoted% }";
 }
 err()      { echo >&2 "${COLOR_ERR}!!${COLOR_CLEAR} $*"; }
 stat()     { echo >&2 "${COLOR_STAT}::${COLOR_CLEAR} $*"; }
@@ -115,7 +115,7 @@ function configure() {
     info "No build name specified, using default: $build_name"
   fi
 
-  if [[ ${build_name,,} == *proton* ]]; then
+  if [[ $(echo "$build_name" | tr '[:upper:]' '[:lower:]') == *proton* ]]; then
     internal_tool_name=${build_name}
   else
     internal_tool_name=${build_name}-proton
@@ -126,6 +126,17 @@ function configure() {
     target_arch="$arg_target_arch"
   fi
   info "Build targetting: $target_arch"
+
+  # macOS builds run on the host, without a container; see darwin/README.md
+  local target_os=linux
+  if [[ -n $arg_target_os ]]; then
+    target_os="$arg_target_os"
+  fi
+  if [[ $target_os == darwin && $target_arch != arm64 ]]; then
+    die "--target-os=darwin needs --target-arch=arm64."
+  fi
+
+  if [[ $target_os != darwin ]]; then
 
   # nothing specified, getting the default value from the Makefile to test the
   # container engine
@@ -157,6 +168,7 @@ function configure() {
   fi
 
   stat "Using $arg_container_engine."
+  fi # target_os != darwin
 
   ## Write out config
   # Don't die after this point or we'll have rather unhelpfully deleted the Makefile
@@ -169,6 +181,7 @@ function configure() {
     echo "SRCDIR     := $(escape_for_make "$srcdir")"
     echo "BUILD_NAME := $(escape_for_make "$build_name")"
     echo "TARGET_ARCH := $(escape_for_make "$target_arch")"
+    echo "TARGET_OS := $(escape_for_make "$target_os")"
     echo "INTERNAL_TOOL_NAME := $(escape_for_make "$internal_tool_name")"
 
     # SteamRT was specified, baking it into the Makefile
@@ -176,8 +189,10 @@ function configure() {
       echo "STEAMRT_IMAGE := $(escape_for_make "$arg_protonsdk_image")"
     fi
 
-    echo "ROOTLESS_CONTAINER := $ROOTLESS_CONTAINER"
-    echo "CONTAINER_ENGINE := $arg_container_engine"
+    if [[ $target_os != darwin ]]; then
+      echo "ROOTLESS_CONTAINER := $ROOTLESS_CONTAINER"
+      echo "CONTAINER_ENGINE := $arg_container_engine"
+    fi
     if [[ -n "$arg_docker_opts" ]]; then
       echo "DOCKER_OPTS := $arg_docker_opts"
     fi
@@ -204,6 +219,7 @@ function configure() {
 arg_protonsdk_image=""
 arg_build_name=""
 arg_target_arch=""
+arg_target_os=""
 arg_container_engine=""
 arg_docker_opts=""
 arg_relabel_volumes=""
@@ -246,6 +262,9 @@ function parse_args() {
       val_used=1
     elif [[ $arg = --target-arch ]]; then
       arg_target_arch="$val"
+      val_used=1
+    elif [[ $arg = --target-os ]]; then
+      arg_target_os="$val"
       val_used=1
     elif [[ $arg = --container-engine ]]; then
       arg_container_engine="$val"
@@ -304,6 +323,9 @@ usage() {
   "$1" "    --build-name=<name>  Set the name of the build that displays when used in Steam"
   "$1" ""
   "$1" "    --target-arch=<name> Builds for given architecture. x86_64 (default) and arm64 are supported."
+  "$1" ""
+  "$1" "    --target-os=<name>   linux (default) or darwin. darwin builds natively on Apple Silicon"
+  "$1" "                         macOS, without a container, and needs --target-arch=arm64."
   "$1" ""
   "$1" "    --container-engine=<engine> Which Docker-compatible container engine to use,"
   "$1" "                                e.g. podman. Tries to do autodiscovery when not specified."
