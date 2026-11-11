@@ -148,7 +148,7 @@ Steam is the Windows client, running inside the prefix under FEX. Games are its 
 
 **8.2 The launcher does not sit in front of each game.** On Linux, Steam runs `proton waitforexitandrun game.exe` per launch, and the script applies the per-app logic. Here Steam calls `CreateProcess` itself. So the per-app logic moves to process start:
 
-- `appcompat/extract.py` reads the upstream `proton` script's tables (`default_compat_config`, the `SteamGameId` blocks in `Session.init_session`, `default_cpu_limit`, `fex_application_profiles`, the resolution limits, the DLL overrides) and writes `share/proton/appcompat.toml`. The tables stay in the script, in upstream's format, so rebases don't conflict; the database is a build product.
+- `appcompat/extract.py` writes `share/proton/appcompat.env` from the `proton` script. It does not parse the script: it loads it as a module, runs its session set-up once per app id it names, and records what differs from an unknown app. The tables stay in the script, in upstream's format, so rebases don't conflict; the database is a build product, in the format of `.metalsharp/launch.env` with one section per app id.
 - The Wine unix side resolves the app id once per process, from `SteamAppId` / `SteamGameId` in the environment, and otherwise from the `appmanifest_*.acf` whose `installdir` contains the executable. It then applies the matching rules through the mechanism that already applies `.metalsharp/launch.env` (Wine patches 0080, 0119).
 - The `proton` command uses the same database, so both entry points behave the same.
 - Precedence, lowest to highest: appcompat database, `.metalsharp/launch.env`, `.metalsharp/launch.local.env`, variables the user set explicitly.
@@ -202,6 +202,8 @@ Two execution engines, one per module architecture:
 - **aarch64 modules natively.** Same CPU, no translation. The hard part is direct system calls: Linux uses `svc #0` with the number in x8, which macOS would misread, and macOS offers no user-space trap for it. Rewriting the instructions would break a module that checksums itself. The candidate that leaves the code untouched is to run the module's code in a Hypervisor.framework guest that shares the process's memory and traps `svc` to the host. That is a large piece of work with open questions (guest address size against a 47-bit process, per-thread vCPUs, cost per call), so it is built only if a module needs it. The one arm64 library inventoried so far, Elden Ring's Epic SDK, has no direct system calls and does not.
 
 Other details: Linux code may use x18, so it runs only where Wine already tolerates that, with the TEB pointer saved around calls; Linux signal numbers and `sigaction` layouts are translated; threads the module creates become pthreads registered with Wine.
+
+**As built in AC1 (`darwin/linuxhost/README.md`), two things differ from the table above.** The host is x86_64 Windows code that FEX runs, so the glibc layer sits on the Windows C runtime and there are no transitions to macOS code. And no FEX change is needed for system calls: FEX hands every `syscall` to Wine's ntdll, which now sends those from a registered library to the host.
 
 ### 9.4 Bridges
 
