@@ -66,6 +66,19 @@ run "$C" run cmd /c ver > "$WORK/c1.out" & run "$C" run cmd /c ver > "$WORK/c2.o
 check "concurrent launches, first" "Microsoft Windows" "$(cat "$WORK/c1.out")"
 check "concurrent launches, second" "Microsoft Windows" "$(cat "$WORK/c2.out")"
 
+# per-game rules, which Wine itself applies to a program that has a Steam app id (games Steam starts)
+if [[ -f $DIST/files/share/proton/appcompat.env ]]; then
+  wine_env() { WINEPREFIX=$A/pfx WINEDEBUG=-all "$DIST/files/bin/wine" cmd /c "$1" 2>/dev/null | tr -d '\r'; }
+  check "rules: a game's section, by SteamAppId" "16" "$(SteamAppId=298110 wine_env 'echo %WINE_CPU_TOPOLOGY%')"
+  check "rules: the section for every game" "1" "$(SteamAppId=298110 wine_env 'echo %WINE_LARGE_ADDRESS_AWARE%')"
+  check "rules: the game's value wins over every game's" "0" "$(SteamAppId=2710 wine_env 'echo %WINE_LARGE_ADDRESS_AWARE%')"
+  check "rules: a value already set is kept" "4" "$(SteamAppId=298110 WINE_CPU_TOPOLOGY=4 wine_env 'echo %WINE_CPU_TOPOLOGY%')"
+  check "rules: nothing without an app id" "%WINE_LARGE_ADDRESS_AWARE%" "$(wine_env 'echo %WINE_LARGE_ADDRESS_AWARE%')"
+  check "rules: the database matches the launcher" "up to date" "$(python3 "$(dirname "$0")/../../appcompat/extract.py" --proton "$P" --check "$DIST/files/share/proton/appcompat.env" 2>&1)"
+else
+  echo "skip  per-game rules (no appcompat.env in the dist)"
+fi
+
 # x86_64 through FEX, when the test programs are built
 BENCH=${BENCH:-$DIST/../tests/bin/bench-x86_64.exe}
 if [[ -f $BENCH ]]; then
