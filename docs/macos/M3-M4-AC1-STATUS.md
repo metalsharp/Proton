@@ -2,7 +2,7 @@
 
 2026-11-10. Milestones are defined in `SPEC.md` §15 and §9.7.
 
-The Wine changes below are on the branch `proton-macos` of the `wine` submodule, on top of MetalSharp Wine 6.0 (`702b230e88d`): three commits for Proton, described here, and fixes to MetalSharp Wine on macOS, described in `CONFORMANCE.md`. The branch is on `metalsharp/MetalSharp-Wine`, and the superproject pins it.
+The Wine changes below are on top of MetalSharp Wine 6.0 (`702b230e88d`): three commits for Proton, described here, and fixes to MetalSharp Wine on macOS, described in `CONFORMANCE.md`. They are MetalSharp Wine 7.0: merged into `source/wine` of `metalsharp/MetalSharp-Wine` (#17, `34a79d0c5bc`) and carried there as Wine patches 0141–0158. The superproject pins that commit.
 
 ## M3: per-game rules for games Steam starts
 

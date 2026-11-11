@@ -46,7 +46,11 @@ The result is in Proton's layout: `dist/files` is the relocatable Wine tree, nex
 
 What builds, what was run and what is left is in `docs/macos/`: `M1-STATUS.md` (the build), `M2-STATUS.md` (the launcher), `M3-M4-AC1-STATUS.md` (per-game rules, Valve's Wine patches, the Linux module host), `M6-STATUS.md` (the app bundle), `CONFORMANCE.md` (Wine's test suite).
 
-`dist/files` has everything MetalSharp Wine 6.0 ships: Wine, FEX, Mullion, WineMetalGL, WFDXCompat, DXVK-MacOS, VKD3D-Proton-MacOS with MoltenVK 1.4.3, innoextract, cabextract, and the files `wine.inf` installs into a prefix. On top of that it has Proton's launcher, the per-game rules database, and `belauncher.exe`.
+This build is MetalSharp Wine 7.0 (`wine --version` reports `MetalSharp Wine 7.0`): the `wine` submodule pins MetalSharp-Wine's `source/wine`, and `darwin/metalsharp-wine` pins its `main`, which carries the same Wine as patches 0141–0158.
+
+`dist/files` has everything MetalSharp Wine 6.0 ships: Wine, FEX, Mullion, WineMetalGL, WFDXCompat, DXVK-MacOS, VKD3D-Proton-MacOS with MoltenVK 1.4.3, innoextract, cabextract, the files `wine.inf` installs into a prefix, and the MetalSharp app's payloads in `share/metalsharp`. Those payloads come from the seed tree's `install/share/metalsharp` for now, until MetalSharp's bundles are fetched here. On top of that it has Proton's launcher, the per-game rules database, and `belauncher.exe`.
+
+To try a build in the MetalSharp app, put the signed `MetalSharp-Wine.app` in place of `~/.metalsharp/runtime/MetalSharp-Wine.app` (with MetalSharp and its games closed). The app's `wine` wrappers and the `host` link point into that bundle.
 
 ## Signing
 
@@ -55,6 +59,8 @@ What builds, what was run and what is left is in `docs/macos/`: `M1-STATUS.md` (
 ```bash
 make app SIGN_IDENTITY="Developer ID Application: <name> (<team>)" PROFILE=<path>/MetalSharp_Wine.provisionprofile
 ```
+
+DLSS needs the NGX cores (`nvngx.dll`) signed with Mullion's NGX key: set `MULLION_NGX_SIGNING_KEY_FILE` (Mullion's core) and `NGX_SIGNING_KEY_FILE` (the VKD3D and DXVK lanes' core) to the PEM private key when building. Without it they are unsigned and games report DLSS as unsupported. The key is otherwise only in the Mullion and VKD3D-Proton-MacOS repositories' secrets, whose CI builds sign them.
 
 The provisioning profile carries the cross-architecture entitlement for `com.metalsharp.wine`, so the bundle keeps that identifier. Run Windows programs through `Contents/MacOS/wine` in the bundle; the loose `dist/files` tree is not signed for them.
 

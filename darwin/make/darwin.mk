@@ -306,7 +306,16 @@ DIST_COPY := proton filelock.py user_settings.sample.py LICENSE LICENSE.proton d
 
 $(STAMPS)/dist: $(STAMPS)/fex $(STAMPS)/payloads $(ADDON_STAMPS) $(addprefix $(SRC)/,$(DIST_COPY)) $(SRC)/appcompat/extract.py
 	@echo ":: audit and package"
+	rm -rf $(OBJ)/install/share/metalsharp
 	$(RUN)/audit-macho.sh $(OBJ)/deps/prefix $(OBJ)/install
+	@# The MetalSharp app's payloads (share/metalsharp: Steam files, Goldberg, FNA, Mono, the host runtime,
+	@# redistributables), which the app expects in the Wine bundle. MetalSharp Wine stages them from
+	@# MetalSharp's bundles (stage-metalsharp-assets.sh, stage-metalsharp-redist.sh) after this audit, and
+	@# package.sh holds them to macOS 15 and rewrites their library paths; until the bundles are fetched
+	@# here, they come from the seed tree.
+	if [ -d $(SEED)/install/share/metalsharp ]; then \
+	  rsync -a $(SEED)/install/share/metalsharp/ $(OBJ)/install/share/metalsharp/; \
+	else echo >&2 "!! no share/metalsharp in $(SEED)/install: the MetalSharp app will not find its payloads"; fi
 	@test -d "$(MACOS15_SDK)" || { echo >&2 "!! packaging needs a macOS 15 SDK: make MACOS15_SDK=<path>/MacOSX15.x.sdk"; exit 1; }
 	cd $(OBJ) && env ROOT=$(OBJ) NO_TARBALL=1 MACOS15_SDK=$(MACOS15_SDK) zsh $(OBJ)/scripts/package.sh files
 	cd $(OBJ) && env ROOT=$(OBJ) STRICT=1 zsh $(OBJ)/scripts/audit-macho.sh $(DST_DIR)
