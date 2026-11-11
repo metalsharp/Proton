@@ -44,13 +44,22 @@ The result is in Proton's layout: `dist/files` is the relocatable Wine tree, nex
 
 ## Status
 
-`docs/macos/M1-STATUS.md` has what builds, what was run, and how the result compares with MetalSharp Wine 6.0.
+What builds, what was run and what is left is in `docs/macos/`: `M1-STATUS.md` (the build), `M2-STATUS.md` (the launcher), `M3-M4-AC1-STATUS.md` (per-game rules, Valve's Wine patches, the Linux module host), `M6-STATUS.md` (the app bundle), `CONFORMANCE.md` (Wine's test suite).
+
+`dist/files` has everything MetalSharp Wine 6.0 ships: Wine, FEX, Mullion, WineMetalGL, WFDXCompat, DXVK-MacOS, VKD3D-Proton-MacOS with MoltenVK 1.4.3, innoextract, cabextract, and the files `wine.inf` installs into a prefix. On top of that it has Proton's launcher, the per-game rules database, and `belauncher.exe`.
 
 Not done yet:
 
-- The VKD3D-Proton lane and MoltenVK 1.4.3. Everything else MetalSharp Wine 6.0 ships is in `dist/files`: Wine, FEX, Mullion, WineMetalGL, WFDXCompat, DXVK-MacOS, innoextract, cabextract, and the files `wine.inf` installs into a prefix.
-- Signing and the app bundle. An unsigned build runs x86_64 and ARM64 programs on 16K pages, and no i386.
-- Per-game rules for games Steam starts itself (`SPEC.md` section 8.2). The `proton` launcher itself runs: see `docs/macos/M2-STATUS.md`.
-- Native make rules in place of the wrapped scripts.
+- A Developer ID build. `make app` builds and signs the application bundle, ad hoc unless `SIGN_IDENTITY` and `PROFILE` are given. An ad-hoc build runs x86_64 and ARM64 programs on 16K pages, and no i386.
+- The Wine branch with Proton's changes (`proton-macos` in the `wine` submodule) is local only.
+- Native make rules in place of the wrapped scripts, and building the llvm-mingw toolchain from nothing.
 
 Packaging needs a macOS 15 SDK (`make MACOS15_SDK=<path>/MacOSX15.x.sdk`); Xcode only carries the current one.
+
+## Tests
+
+```bash
+darwin/tests/launcher.sh <build dir>/dist
+```
+
+runs the launcher's verbs, the environment mapping, the FEX configuration, logging, concurrent launches and the per-game rules against a built `dist/`.

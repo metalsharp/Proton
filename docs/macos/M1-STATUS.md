@@ -58,12 +58,13 @@ Smoke tests on the repackaged build, each as native ARM64 and as x86_64 under FE
 | Direct3D 9 (x86_64) | shader model 3.0, 30 frames, pixel read back correctly |
 | Direct3D 11 on DXVK (x86_64, `GRAPHICS_BACKEND=dxvk`) | DXVK v3.1.1-macos.3 starts on winevulkan |
 
+**VKD3D-Proton and MoltenVK 1.4.3 (later still).** `make vkd3d` fetches and patches the upstream trees with VKD3D-Proton-MacOS's own scripts and builds VKD3D-Proton, its DXGI and D3D10/11, the NGX core and NVAPI, MetalSharp's MoltenVK 1.4.3 (an Xcode build) and the DXBC converter. With that, **every file MetalSharp Wine 6.0 ships is in this build.** Direct3D 12 on this lane (`GRAPHICS_BACKEND=vkd3d`) presents 30 frames, natively and under FEX.
+
 Mullion's `nvngx.dll` is unsigned here (no `MULLION_NGX_SIGNING_KEY_FILE`), so NVIDIA's NGX library will not load it and DLSS games will not get DLSS from this build.
 
 ## Not done
 
-- **The VKD3D-Proton lane and MoltenVK 1.4.3.** They are built by VKD3D-Proton-MacOS's own scripts from four upstream trees; not wired in yet.
-- **Conformance run.** The Wine test suites have not been run against this build, so the M1 baseline comparison is still open.
+- **Conformance.** Done for six modules as native ARM64: this build matches MetalSharp Wine 6.0 unit for unit, and six fixes took 86 failures away. See `CONFORMANCE.md`. The x86_64 and i386 test builds have not been run.
 - **Signing.** This build is ad-hoc signed: x86_64 and ARM64 only, 16K pages. i386 programs cannot start, which shows during prefix creation as two failed Mono helper programs (`removeuserinstalls-x86.exe`, `installinf-x86.exe`) and leaves Wine Mono uninstalled in the prefix.
 - **Version string.** 6.0 reports `wine-11.20-139-g702b230e88d`; this build reports `wine-11.20`, because Wine is built in a copy of the submodule without its git data.
 - **`make tests`** stops at one program (below).

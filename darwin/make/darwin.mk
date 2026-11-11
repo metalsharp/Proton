@@ -31,7 +31,7 @@ J := $(shell sysctl -n hw.ncpu)
 RUN = cd $(OBJ) && env ROOT=$(OBJ) zsh $(OBJ)/scripts
 
 .PHONY: default all dist redist deploy clean-dist check-host root toolchain source deps wine fex payloads tests \
-        audit module help targets addons mullion winemetalgl wfdxcompat dxvk tools
+        audit module help targets addons mullion winemetalgl wfdxcompat dxvk vkd3d tools app
 default: all
 .DEFAULT_GOAL := default
 all: dist
@@ -176,12 +176,14 @@ payloads: $(STAMPS)/payloads
 ##   winemetalgl   OpenGL 4.6 on Metal (the default OpenGL)
 ##   wfdxcompat    the Rockstar launcher companion for Mullion
 ##   dxvk          DXVK-MacOS: Direct3D 9/10/11 on MoltenVK, opt-in
+##   vkd3d         VKD3D-Proton-MacOS: Direct3D 12 on MoltenVK, opt-in, with its own DXGI, D3D10/11, NGX core and
+##                 NVAPI, and MetalSharp's MoltenVK 1.4.3, which replaces the 1.4.2 from the dependencies
 ##   tools         innoextract and cabextract
 ## Each builds inside its source tree, so the build uses a git worktree of the submodule under src/,
 ## which keeps the submodule itself clean. `make ADDONS=` builds without them.
 ##
 
-ADDONS ?= mullion winemetalgl wfdxcompat dxvk tools
+ADDONS ?= mullion winemetalgl wfdxcompat dxvk vkd3d tools
 
 # addon-source <submodule> <name under src/>
 define addon-source
@@ -200,6 +202,7 @@ $(eval $(call addon-source,mullion,mullion))
 $(eval $(call addon-source,winemetalgl,winemetalgl))
 $(eval $(call addon-source,wfdxcompat,wfdxcompat))
 $(eval $(call addon-source,dxvk,dxvk-macos))
+$(eval $(call addon-source,vkd3d-proton,vkd3d-proton))
 
 # Static LLVM 15 libraries for Mullion's shader converter. build-llvm15.sh expects the LLVM source
 # already unpacked under deps/src/llvm15; an existing MetalSharp Wine tree has the built libraries.
@@ -235,6 +238,36 @@ $(STAMPS)/addon-dxvk: $(STAMPS)/wine $(STAMPS)/source-dxvk
 	{ $(RUN)/build-dxvk-macos.sh && $(RUN)/stage-dxvk.sh; } > $(OBJ)/logs/addon-dxvk.log 2>&1 || { tail -25 $(OBJ)/logs/addon-dxvk.log; exit 1; }
 	touch $@
 
+# VKD3D-Proton-MacOS builds with its own scripts, from upstream trees its fetch-sources.sh clones and
+# patches (VKD3D-Proton, MoltenVK, DXVK 2.7.1, NVAPI headers, DirectXShaderCompiler). MoltenVK is an
+# Xcode build. The DXVK lane is staged again afterwards, to take this build's NGX core and NVAPI.
+# The DXBC converter is DirectXShaderCompiler's; its build checks its generated sources against a
+# clang-format it finds, and a clang-format of another version makes that check fail, so the build
+# is told there is none.
+VKD3D_WS := $(OBJ)/src/vkd3d-proton
+VKD3D_ENV := env LLVM_MINGW=$(OBJ)/toolchain/$(MINGW_NAME)
+
+$(STAMPS)/addon-vkd3d: $(STAMPS)/wine $(STAMPS)/addon-dxvk $(STAMPS)/source-vkd3d-proton
+	@echo ":: vkd3d-proton and MoltenVK (logs/addon-vkd3d.log)"
+	{ cd $(VKD3D_WS) && \
+	  bash scripts/fetch-sources.sh && \
+	  $(VKD3D_ENV) bash scripts/build-vkd3d-proton-arm64x.sh && \
+	  $(VKD3D_ENV) bash scripts/build-dxvk-arm64x.sh && \
+	  $(VKD3D_ENV) sh scripts/build-ngx-arm64x.sh && \
+	  bash scripts/build-moltenvk.sh --externals && \
+	  mkdir -p artifacts/build/dxbcconverter-universal && \
+	  { c=artifacts/build/dxbcconverter-universal/CMakeCache.txt; \
+	    if [ -f $$c ]; then sed -i '' 's|^CLANG_FORMAT_EXE:FILEPATH=.*|CLANG_FORMAT_EXE:FILEPATH=|' $$c; \
+	    else printf 'CLANG_FORMAT_EXE:FILEPATH=\n' > $$c; fi; } && \
+	  bash scripts/build-dxbcconverter.sh && \
+	  bash scripts/fetch-metal-shaderconverter.sh && \
+	  cd $(OBJ) && \
+	  env ROOT=$(OBJ) zsh scripts/stage-moltenvk.sh && \
+	  env ROOT=$(OBJ) zsh scripts/stage-vkd3d-proton.sh && \
+	  env ROOT=$(OBJ) zsh scripts/stage-dxvk.sh; \
+	} > $(OBJ)/logs/addon-vkd3d.log 2>&1 || { tail -30 $(OBJ)/logs/addon-vkd3d.log; exit 1; }
+	touch $@
+
 $(STAMPS)/addon-tools: $(STAMPS)/deps
 	@for d in innoextract cabextract; do \
 	  if [ -d $(SEED)/downloads/$$d ] && [ ! -d $(OBJ)/downloads/$$d ]; then \
@@ -252,6 +285,7 @@ mullion: $(STAMPS)/addon-mullion
 winemetalgl: $(STAMPS)/addon-winemetalgl
 wfdxcompat: $(STAMPS)/addon-wfdxcompat
 dxvk: $(STAMPS)/addon-dxvk
+vkd3d: $(STAMPS)/addon-vkd3d
 tools: $(STAMPS)/addon-tools
 
 ##
@@ -270,7 +304,7 @@ tests: $(STAMPS)/tests
 
 DIST_COPY := proton filelock.py user_settings.sample.py LICENSE LICENSE.proton dist.LICENSE
 
-$(STAMPS)/dist: $(STAMPS)/fex $(STAMPS)/payloads $(ADDON_STAMPS) $(addprefix $(SRC)/,$(DIST_COPY))
+$(STAMPS)/dist: $(STAMPS)/fex $(STAMPS)/payloads $(ADDON_STAMPS) $(addprefix $(SRC)/,$(DIST_COPY)) $(SRC)/appcompat/extract.py
 	@echo ":: audit and package"
 	$(RUN)/audit-macho.sh $(OBJ)/deps/prefix $(OBJ)/install
 	@test -d "$(MACOS15_SDK)" || { echo >&2 "!! packaging needs a macOS 15 SDK: make MACOS15_SDK=<path>/MacOSX15.x.sdk"; exit 1; }
@@ -278,6 +312,8 @@ $(STAMPS)/dist: $(STAMPS)/fex $(STAMPS)/payloads $(ADDON_STAMPS) $(addprefix $(S
 	cd $(OBJ) && env ROOT=$(OBJ) STRICT=1 zsh $(OBJ)/scripts/audit-macho.sh $(DST_DIR)
 	cp -f $(addprefix $(SRC)/,$(DIST_COPY)) $(DST_BASE)/
 	mkdir -p $(DST_DIR)/share/fex-emu && cp -f $(SRC)/FEX_Config.json $(DST_DIR)/share/fex-emu/Config.json
+	@# the launcher's per-game tables, for the games Steam starts itself (Wine reads them at process start)
+	mkdir -p $(DST_DIR)/share/proton && python3 $(SRC)/appcompat/extract.py --proton $(SRC)/proton --output $(DST_DIR)/share/proton/appcompat.env
 	echo `date '+%s'` `git -C $(SRC) describe --tags --always` > $(DST_BASE)/version
 	touch $@
 dist: $(STAMPS)/dist
@@ -295,6 +331,47 @@ clean-dist:
 	rm -rf $(DST_BASE) $(STAMPS)/dist
 
 ##
+## app: the signed application bundle, dist/MetalSharp-Wine.app, with Proton's launcher in it.
+##
+##   make app                                                         ad-hoc signed, to check the layout
+##   make app SIGN_IDENTITY="Developer ID Application: Name (TEAM)" PROFILE=<file>.provisionprofile
+##
+## MetalSharp Wine's sign-app.sh builds and signs the bundle: Contents/MacOS, lib and share are the
+## Wine tree, and the inner loader gets a bundle of its own. With a Developer ID and a provisioning
+## profile that carries the cross-architecture entitlement, Windows programs get 4K pages and the low
+## 4GB, so i386 programs run. The bundle identifier has to match the profile (BUNDLE_ID).
+## Proton's files go in Contents/Resources, where files/ is a link to Contents, so the launcher finds
+## files/bin/wine, files/lib and files/share as in dist/. The bundle is signed again after that.
+##
+
+APP := $(DST_BASE)/MetalSharp-Wine.app
+SIGN_IDENTITY ?= -
+SIGNED_NAME = $(shell sed -n 's|^D=$$ROOT/dist/||p' $(MSW)/scripts/sign-app.sh)
+
+app: $(STAMPS)/dist
+	@test -n "$(SIGNED_NAME)" || { echo >&2 "!! cannot tell which folder sign-app.sh packages"; exit 1; }
+	ln -sfn files $(DST_BASE)/$(SIGNED_NAME)
+	@# sign-app.sh stops at its profile lookup when there is no identity (the lookup's test fails under set -e),
+	@# so an ad-hoc bundle could not be built: run a copy with that one line made harmless
+	mkdir -p $(OBJ)/scripts-app && for f in $(MSW)/scripts/*; do ln -sfn $$f $(OBJ)/scripts-app/; done
+	rm -f $(OBJ)/scripts-app/sign-app.sh
+	sed 's/| head -1 )}/| head -1 || true )}/' $(MSW)/scripts/sign-app.sh > $(OBJ)/scripts-app/sign-app.sh
+	cd $(OBJ) && env ROOT=$(OBJ) SIGN_IDENTITY="$(SIGN_IDENTITY)" $(if $(PROFILE),PROFILE="$(PROFILE)") \
+	    $(if $(BUNDLE_ID),BUNDLE_ID="$(BUNDLE_ID)") MACOS15_SDK=$(MACOS15_SDK) zsh $(OBJ)/scripts-app/sign-app.sh
+	rm -f $(DST_BASE)/$(SIGNED_NAME)
+	cp -f $(addprefix $(DST_BASE)/,$(DIST_COPY) version) $(APP)/Contents/Resources/
+	ln -sfn .. $(APP)/Contents/Resources/files
+	@# the seal of the bundle covers Resources: sign it again, as sign-app.sh did
+	if [ "$(SIGN_IDENTITY)" = "-" ]; then \
+	  codesign -f -s - --entitlements $(DST_BASE)/wine.entitlements $(APP); \
+	else \
+	  codesign -f -s "$(SIGN_IDENTITY)" --timestamp $(if $(filter 0,$(HARDENED)),,-o runtime) \
+	      --entitlements $(DST_BASE)/wine.entitlements $(APP); \
+	fi
+	codesign --verify --strict --deep $(APP)
+	@echo ":: app: $(APP) (signed by: $(SIGN_IDENTITY))"
+
+##
 ## make module=<dll> module: rebuild one Wine module in place
 ##
 
@@ -308,4 +385,5 @@ targets:
 	@echo "make deps|wine|fex|tests   build one stage (and what it needs)"
 	@echo "make module=xyz module     rebuild one Wine module"
 	@echo "make redist       copy dist/ to redist/"
+	@echo "make app          the application bundle (SIGN_IDENTITY=, PROFILE= for a Developer ID build)"
 	@echo "make check-host   list missing build tools"
