@@ -1,7 +1,7 @@
 [submodule "wine"]
 	path = wine
 	url = https://github.com/metalsharp/MetalSharp-Wine.git
-	branch = source/wine
+	branch = proton-macos
 [submodule "dxvk"]
 	path = dxvk
 	url = https://github.com/metalsharp/DXVK-MacOS.git
