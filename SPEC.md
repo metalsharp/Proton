@@ -324,7 +324,7 @@ Proton-macOS.app/Contents/
       bin/                          wine, wineserver, msidb, innoextract, cabextract
       lib/wine/aarch64-unix/        Wine unix side, wine.app (inner loader bundle with the profile)
       lib/wine/{aarch64,i386}-windows/
-      lib/{mullion,dxvk,vkd3d-proton,winemetalgl,wfdxcompat}/
+      lib/{mullion,dxvk,vkd3d-proton,winemetalgl,wfdxcompat,linuxhost}/
       share/default_pfx/  share/fex-emu/Config.json  share/proton/appcompat.toml
       share/fonts/  share/media/  share/wine/  share/licenses/
 ```

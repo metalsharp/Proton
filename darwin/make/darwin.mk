@@ -31,7 +31,7 @@ J := $(shell sysctl -n hw.ncpu)
 RUN = cd $(OBJ) && env ROOT=$(OBJ) zsh $(OBJ)/scripts
 
 .PHONY: default all dist redist deploy clean-dist check-host root toolchain source deps wine fex payloads tests \
-        audit module help targets addons mullion winemetalgl wfdxcompat dxvk vkd3d tools app
+        audit module help targets addons mullion winemetalgl wfdxcompat linuxhost dxvk vkd3d tools app
 default: all
 .DEFAULT_GOAL := default
 all: dist
@@ -175,6 +175,8 @@ payloads: $(STAMPS)/payloads
 ##   mullion       Direct3D 10/11/12 on Metal (the default Direct3D), with its NGX core and NVAPI
 ##   winemetalgl   OpenGL 4.6 on Metal (the default OpenGL)
 ##   wfdxcompat    the Rockstar launcher companion for Mullion
+##   linuxhost     the Linux module host (darwin/linuxhost), which runs the Linux code Easy Anti-Cheat's EOS
+##                 bootstrapper loads into itself; ntdll finds it in lib/linuxhost
 ##   dxvk          DXVK-MacOS: Direct3D 9/10/11 on MoltenVK, opt-in
 ##   vkd3d         VKD3D-Proton-MacOS: Direct3D 12 on MoltenVK, opt-in, with its own DXGI, D3D10/11, NGX core and
 ##                 NVAPI, and MetalSharp's MoltenVK 1.4.3, which replaces the 1.4.2 from the dependencies
@@ -183,7 +185,7 @@ payloads: $(STAMPS)/payloads
 ## which keeps the submodule itself clean. `make ADDONS=` builds without them.
 ##
 
-ADDONS ?= mullion winemetalgl wfdxcompat dxvk vkd3d tools
+ADDONS ?= mullion winemetalgl wfdxcompat linuxhost dxvk vkd3d tools
 
 # addon-source <submodule> <name under src/>
 define addon-source
@@ -231,6 +233,16 @@ $(STAMPS)/addon-winemetalgl: $(STAMPS)/wine $(STAMPS)/source-winemetalgl
 $(STAMPS)/addon-wfdxcompat: $(STAMPS)/addon-mullion $(STAMPS)/source-wfdxcompat
 	@echo ":: wfdxcompat (logs/addon-wfdxcompat.log)"
 	$(RUN)/build-wfdxcompat.sh > $(OBJ)/logs/addon-wfdxcompat.log 2>&1 || { tail -25 $(OBJ)/logs/addon-wfdxcompat.log; exit 1; }
+	touch $@
+
+# The Linux module host is developed here, in darwin/linuxhost (MetalSharp Wine carries it as source/linuxhost):
+# the build tree links it as src/linuxhost, and a change to it builds the host again.
+LINUXHOST_SOURCES := $(wildcard $(SRC)/darwin/linuxhost/*.c $(SRC)/darwin/linuxhost/*.h $(SRC)/darwin/linuxhost/build.sh)
+
+$(STAMPS)/addon-linuxhost: $(STAMPS)/toolchain $(LINUXHOST_SOURCES)
+	@echo ":: linuxhost (logs/addon-linuxhost.log)"
+	ln -sfn $(SRC)/darwin/linuxhost $(OBJ)/src/linuxhost
+	$(RUN)/build-linuxhost.sh > $(OBJ)/logs/addon-linuxhost.log 2>&1 || { tail -25 $(OBJ)/logs/addon-linuxhost.log; exit 1; }
 	touch $@
 
 $(STAMPS)/addon-dxvk: $(STAMPS)/wine $(STAMPS)/source-dxvk
@@ -284,6 +296,7 @@ addons: $(ADDON_STAMPS)
 mullion: $(STAMPS)/addon-mullion
 winemetalgl: $(STAMPS)/addon-winemetalgl
 wfdxcompat: $(STAMPS)/addon-wfdxcompat
+linuxhost: $(STAMPS)/addon-linuxhost
 dxvk: $(STAMPS)/addon-dxvk
 vkd3d: $(STAMPS)/addon-vkd3d
 tools: $(STAMPS)/addon-tools
