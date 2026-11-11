@@ -21,6 +21,7 @@ It expects a Wine repository at `.cache/wine.git` with the refs `wine-11.0`, `wi
 | `status` | `auto` decided by the script with hard evidence, `review` a suggestion a person has to confirm, `done` decided by hand |
 | `evidence` | why the script decided what it did |
 | `anticheat` | `yes` when the commit is part of EasyAntiCheat or BattlEye support |
+| `applies` | from `ledger/try_apply.py`: `clean` or `conflict` when the commit is cherry-picked onto MetalSharp Wine after the ones before it. Mechanical only: nothing is compiled or reviewed |
 | `target` | the commit in MetalSharp Wine once ported |
 
 State on 2026-11-10 (Valve `e60892cc239`, MetalSharp `702b230e88d`):
@@ -38,6 +39,8 @@ State on 2026-11-10 (Valve `e60892cc239`, MetalSharp `702b230e88d`):
 | I | port | review | 18 |
 
 418 commits are settled automatically. 1,036 need a person; 17 of those are anti-cheat support.
+
+Of the 933 marked `port`, 521 apply cleanly in order and 412 conflict (`ledger/try_apply.py`, same date). The 17 anti-cheat commits were ported by hand as one commit; see `docs/macos/M3-M4-AC1-STATUS.md`.
 
 How the automatic classes are decided:
 
