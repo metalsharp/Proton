@@ -1,9 +1,11 @@
 [submodule "wine"]
 	path = wine
-	url = ../wine
+	url = https://github.com/metalsharp/MetalSharp-Wine.git
+	branch = source/wine
 [submodule "dxvk"]
 	path = dxvk
-	url = https://github.com/doitsujin/dxvk.git
+	url = https://github.com/metalsharp/DXVK-MacOS.git
+	branch = main
 [submodule "openvr"]
 	path = openvr
 	url = https://github.com/ValveSoftware/openvr
@@ -18,7 +20,8 @@
 	url = https://github.com/GStreamer/orc.git
 [submodule "vkd3d-proton"]
 	path = vkd3d-proton
-	url = https://github.com/HansKristian-Work/vkd3d-proton
+	url = https://github.com/metalsharp/VKD3D-Proton-MacOS.git
+	branch = main
 [submodule "OpenXR-SDK"]
 	path = OpenXR-SDK
 	url = https://github.com/KhronosGroup/OpenXR-SDK
@@ -71,7 +74,24 @@
 	url = https://github.com/alphacep/vosk-api
 [submodule "FEX"]
 	path = FEX
-	url = https://github.com/FEX-Emu/FEX/
+	url = https://github.com/metalsharp/MetalSharp-Wine.git
+	branch = source/fex
 [submodule "libsoup"]
 	path = libsoup
 	url = https://github.com/GNOME/libsoup.git
+[submodule "mullion"]
+	path = mullion
+	url = https://github.com/aaf2tbz/mullion.git
+	branch = metalsharp-2.1-main
+[submodule "winemetalgl"]
+	path = winemetalgl
+	url = https://github.com/metalsharp/MetalSharp-Wine.git
+	branch = source/winemetalgl
+[submodule "wfdxcompat"]
+	path = wfdxcompat
+	url = https://github.com/metalsharp/MetalSharp-Wine.git
+	branch = source/wfdxcompat
+[submodule "darwin/metalsharp-wine"]
+	path = darwin/metalsharp-wine
+	url = https://github.com/metalsharp/MetalSharp-Wine.git
+	branch = main
