@@ -1,0 +1,17 @@
+(unversioned)	__wine_dbg_header
+(unversioned)	__wine_dbg_output
+(weak, unversioned)	_ITM_deregisterTMCloneTable
+(weak, unversioned)	_ITM_registerTMCloneTable
+(weak, unversioned)	__gmon_start__
+libc.so.6	__cxa_finalize
+libc.so.6	calloc
+libc.so.6	free
+libc.so.6	getenv
+libc.so.6	malloc
+libc.so.6	memcpy
+libc.so.6	pthread_mutex_lock
+libc.so.6	pthread_mutex_unlock
+libc.so.6	strlen
+libc.so.6	vsnprintf
+libdl.so.2	dlopen
+libdl.so.2	dlsym

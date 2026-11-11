@@ -1,0 +1,17 @@
+(weak, unversioned)	_ITM_deregisterTMCloneTable
+(weak, unversioned)	_ITM_registerTMCloneTable
+(weak, unversioned)	__gmon_start__
+libc.so.6	__cxa_finalize
+libc.so.6	free
+libc.so.6	malloc
+libc.so.6	memcpy
+libc.so.6	strcpy
+libc.so.6	strdup
+libc.so.6	strlen
+libc.so.6	strrchr
+libdl.so.2	dlopen
+libdl.so.2	dlsym
+libpthread.so.0	pthread_cond_signal
+libpthread.so.0	pthread_cond_wait
+libpthread.so.0	pthread_mutex_lock
+libpthread.so.0	pthread_mutex_unlock
