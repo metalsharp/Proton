@@ -22,7 +22,13 @@ make proton
 mkdir -p build/mac && cd build/mac && ../../configure.sh --target-os=darwin --target-arch=arm64 --build-name=mac && make
 ```
 
-Stages can be built one at a time: `make deps`, `make wine`, `make fex`, `make tests`, `make dist`. Each stage's output goes to `logs/` in the build directory. `make check-host` lists missing tools.
+Add the add-on sources first if you want them (`make ADDONS=` builds without):
+
+```bash
+git submodule update --init mullion winemetalgl wfdxcompat dxvk
+```
+
+Stages can be built one at a time: `make deps`, `make wine`, `make fex`, `make payloads`, `make addons`, `make tests`, `make dist`. Each stage's output goes to `logs/` in the build directory. `make check-host` lists missing tools.
 
 ## What you need
 
@@ -42,9 +48,9 @@ The result is in Proton's layout: `dist/files` is the relocatable Wine tree, nex
 
 Not done yet:
 
-- The add-ons: Mullion, WineMetalGL, DXVK-MacOS, VKD3D-Proton-MacOS, MoltenVK 1.4.3, innoextract and cabextract. `dist/files` is Wine, FEX, their libraries, and the files `wine.inf` installs into a prefix (shader compilers, fonts, Wine Mono and Gecko).
+- The VKD3D-Proton lane and MoltenVK 1.4.3. Everything else MetalSharp Wine 6.0 ships is in `dist/files`: Wine, FEX, Mullion, WineMetalGL, WFDXCompat, DXVK-MacOS, innoextract, cabextract, and the files `wine.inf` installs into a prefix.
 - Signing and the app bundle. An unsigned build runs x86_64 and ARM64 programs on 16K pages, and no i386.
-- Proton's own pieces on macOS: the `proton` script is copied into `dist/` unchanged and does not run here yet.
+- Per-game rules for games Steam starts itself (`SPEC.md` section 8.2). The `proton` launcher itself runs: see `docs/macos/M2-STATUS.md`.
 - Native make rules in place of the wrapped scripts.
 
 Packaging needs a macOS 15 SDK (`make MACOS15_SDK=<path>/MacOSX15.x.sdk`); Xcode only carries the current one.

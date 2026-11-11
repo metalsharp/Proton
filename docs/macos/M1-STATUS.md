@@ -44,9 +44,25 @@ Against the packaged `metalsharp-wine-6.0-arm64` tree, file lists under `lib/win
 
 Nothing is in this build that 6.0 lacks. Everything 6.0 has and this build lacks is an add-on not built yet: WineMetalGL (`winemetalgl.*`, `libwinemetalgl.dylib`), Mullion (`winemetal.*`, `lib/mullion`), NVAPI and NGX (`nvapi64.dll`, `nvngx.dll`), `lib/dxvk`, `lib/vkd3d-proton`, `lib/wfdxcompat`, MoltenVK 1.4.3, innoextract and cabextract.
 
+## Add-ons (added later the same day)
+
+Mullion, WineMetalGL, WFDXCompat, DXVK-MacOS, innoextract and cabextract now build (`make addons`) and are in `dist/files`. `lib/wine` then matches 6.0 file for file. What 6.0 still has and this build lacks is the VKD3D-Proton lane: `lib/vkd3d-proton`, `libdxbcconverter.dylib`, `libmetalirconverter.dylib`, and MoltenVK 1.4.3 in place of 1.4.2.
+
+Smoke tests on the repackaged build, each as native ARM64 and as x86_64 under FEX unless noted:
+
+| Test | Result |
+|---|---|
+| Direct3D 11 on Mullion | feature level 11_1, 30 frames presented |
+| Direct3D 12 on Mullion | device created, 30 frames presented |
+| OpenGL on WineMetalGL | 4.6 compatibility and core profiles, pixel read back correctly |
+| Direct3D 9 (x86_64) | shader model 3.0, 30 frames, pixel read back correctly |
+| Direct3D 11 on DXVK (x86_64, `GRAPHICS_BACKEND=dxvk`) | DXVK v3.1.1-macos.3 starts on winevulkan |
+
+Mullion's `nvngx.dll` is unsigned here (no `MULLION_NGX_SIGNING_KEY_FILE`), so NVIDIA's NGX library will not load it and DLSS games will not get DLSS from this build.
+
 ## Not done
 
-- **The add-ons above.** Until they are built, Direct3D goes to Wine's own wined3d and OpenGL to Apple's.
+- **The VKD3D-Proton lane and MoltenVK 1.4.3.** They are built by VKD3D-Proton-MacOS's own scripts from four upstream trees; not wired in yet.
 - **Conformance run.** The Wine test suites have not been run against this build, so the M1 baseline comparison is still open.
 - **Signing.** This build is ad-hoc signed: x86_64 and ARM64 only, 16K pages. i386 programs cannot start, which shows during prefix creation as two failed Mono helper programs (`removeuserinstalls-x86.exe`, `installinf-x86.exe`) and leaves Wine Mono uninstalled in the prefix.
 - **Version string.** 6.0 reports `wine-11.20-139-g702b230e88d`; this build reports `wine-11.20`, because Wine is built in a copy of the submodule without its git data.

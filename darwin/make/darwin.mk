@@ -31,7 +31,7 @@ J := $(shell sysctl -n hw.ncpu)
 RUN = cd $(OBJ) && env ROOT=$(OBJ) zsh $(OBJ)/scripts
 
 .PHONY: default all dist redist deploy clean-dist check-host root toolchain source deps wine fex payloads tests \
-        audit module help targets
+        audit module help targets addons mullion winemetalgl wfdxcompat dxvk tools
 default: all
 .DEFAULT_GOAL := default
 all: dist
@@ -171,6 +171,90 @@ $(STAMPS)/payloads: $(STAMPS)/wine
 payloads: $(STAMPS)/payloads
 
 ##
+## Add-ons: the graphics layers and tools MetalSharp Wine ships beside Wine.
+##   mullion       Direct3D 10/11/12 on Metal (the default Direct3D), with its NGX core and NVAPI
+##   winemetalgl   OpenGL 4.6 on Metal (the default OpenGL)
+##   wfdxcompat    the Rockstar launcher companion for Mullion
+##   dxvk          DXVK-MacOS: Direct3D 9/10/11 on MoltenVK, opt-in
+##   tools         innoextract and cabextract
+## Each builds inside its source tree, so the build uses a git worktree of the submodule under src/,
+## which keeps the submodule itself clean. `make ADDONS=` builds without them.
+##
+
+ADDONS ?= mullion winemetalgl wfdxcompat dxvk tools
+
+# addon-source <submodule> <name under src/>
+define addon-source
+$(STAMPS)/source-$(1): $(STAMPS)/root
+	@test -e $(SRC)/$(1)/.git || { echo >&2 "!! the $(1) submodule is not checked out: git submodule update --init $(1)"; exit 1; }
+	@echo ":: source: $(1)"
+	if [ -e $(OBJ)/src/$(2)/.git ]; then \
+	  git -C $(OBJ)/src/$(2) checkout -q --detach `git -C $(SRC)/$(1) rev-parse HEAD`; \
+	else \
+	  git -C $(SRC)/$(1) worktree prune && git -C $(SRC)/$(1) worktree add -q --detach $(OBJ)/src/$(2) HEAD; \
+	fi
+	if [ -f $(OBJ)/src/$(2)/.gitmodules ]; then git -C $(OBJ)/src/$(2) submodule update -q --init --recursive --depth 1; fi
+	touch $$@
+endef
+$(eval $(call addon-source,mullion,mullion))
+$(eval $(call addon-source,winemetalgl,winemetalgl))
+$(eval $(call addon-source,wfdxcompat,wfdxcompat))
+$(eval $(call addon-source,dxvk,dxvk-macos))
+
+# Static LLVM 15 libraries for Mullion's shader converter. build-llvm15.sh expects the LLVM source
+# already unpacked under deps/src/llvm15; an existing MetalSharp Wine tree has the built libraries.
+$(STAMPS)/llvm15: $(STAMPS)/toolchain
+	@if [ ! -d $(OBJ)/deps/llvm15/lib ]; then \
+	  if [ -d $(SEED)/deps/llvm15/lib ]; then \
+	    echo ":: llvm15: cloning from $(SEED)"; cp -c -R $(SEED)/deps/llvm15 $(OBJ)/deps/llvm15; \
+	  elif [ -d $(OBJ)/deps/src/llvm15/llvm-project-15.0.7.src ]; then \
+	    cd $(OBJ) && env ROOT=$(OBJ) zsh $(OBJ)/scripts/build-llvm15.sh; \
+	  else \
+	    echo >&2 "!! Mullion needs LLVM 15.0.7: unpack llvm-project-15.0.7.src under $(OBJ)/deps/src/llvm15, or set SEED."; exit 1; \
+	  fi; \
+	fi
+	touch $@
+
+$(STAMPS)/addon-mullion: $(STAMPS)/wine $(STAMPS)/llvm15 $(STAMPS)/source-mullion
+	@echo ":: mullion (logs/addon-mullion.log)"
+	$(RUN)/build-mullion.sh > $(OBJ)/logs/addon-mullion.log 2>&1 || { tail -25 $(OBJ)/logs/addon-mullion.log; exit 1; }
+	touch $@
+
+$(STAMPS)/addon-winemetalgl: $(STAMPS)/wine $(STAMPS)/source-winemetalgl
+	@echo ":: winemetalgl (logs/addon-winemetalgl.log)"
+	$(RUN)/build-winemetalgl.sh > $(OBJ)/logs/addon-winemetalgl.log 2>&1 || { tail -25 $(OBJ)/logs/addon-winemetalgl.log; exit 1; }
+	touch $@
+
+$(STAMPS)/addon-wfdxcompat: $(STAMPS)/addon-mullion $(STAMPS)/source-wfdxcompat
+	@echo ":: wfdxcompat (logs/addon-wfdxcompat.log)"
+	$(RUN)/build-wfdxcompat.sh > $(OBJ)/logs/addon-wfdxcompat.log 2>&1 || { tail -25 $(OBJ)/logs/addon-wfdxcompat.log; exit 1; }
+	touch $@
+
+$(STAMPS)/addon-dxvk: $(STAMPS)/wine $(STAMPS)/source-dxvk
+	@echo ":: dxvk (logs/addon-dxvk.log)"
+	{ $(RUN)/build-dxvk-macos.sh && $(RUN)/stage-dxvk.sh; } > $(OBJ)/logs/addon-dxvk.log 2>&1 || { tail -25 $(OBJ)/logs/addon-dxvk.log; exit 1; }
+	touch $@
+
+$(STAMPS)/addon-tools: $(STAMPS)/deps
+	@for d in innoextract cabextract; do \
+	  if [ -d $(SEED)/downloads/$$d ] && [ ! -d $(OBJ)/downloads/$$d ]; then \
+	    mkdir -p $(OBJ)/downloads/$$d; \
+	    for f in $(SEED)/downloads/$$d/*; do [ -f "$$f" ] && cp -c "$$f" $(OBJ)/downloads/$$d/; done; true; \
+	  fi; \
+	done
+	@echo ":: tools (logs/addon-tools.log)"
+	{ $(RUN)/build-innoextract.sh && $(RUN)/build-cabextract.sh; } > $(OBJ)/logs/addon-tools.log 2>&1 || { tail -25 $(OBJ)/logs/addon-tools.log; exit 1; }
+	touch $@
+
+ADDON_STAMPS := $(addprefix $(STAMPS)/addon-,$(ADDONS))
+addons: $(ADDON_STAMPS)
+mullion: $(STAMPS)/addon-mullion
+winemetalgl: $(STAMPS)/addon-winemetalgl
+wfdxcompat: $(STAMPS)/addon-wfdxcompat
+dxvk: $(STAMPS)/addon-dxvk
+tools: $(STAMPS)/addon-tools
+
+##
 ## Smoke tests and benchmarks
 ##
 
@@ -186,7 +270,7 @@ tests: $(STAMPS)/tests
 
 DIST_COPY := proton filelock.py user_settings.sample.py LICENSE LICENSE.proton dist.LICENSE
 
-$(STAMPS)/dist: $(STAMPS)/fex $(STAMPS)/payloads $(addprefix $(SRC)/,$(DIST_COPY))
+$(STAMPS)/dist: $(STAMPS)/fex $(STAMPS)/payloads $(ADDON_STAMPS) $(addprefix $(SRC)/,$(DIST_COPY))
 	@echo ":: audit and package"
 	$(RUN)/audit-macho.sh $(OBJ)/deps/prefix $(OBJ)/install
 	@test -d "$(MACOS15_SDK)" || { echo >&2 "!! packaging needs a macOS 15 SDK: make MACOS15_SDK=<path>/MacOSX15.x.sdk"; exit 1; }
