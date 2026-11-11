@@ -64,8 +64,8 @@ Mullion's `nvngx.dll` is unsigned here (no `MULLION_NGX_SIGNING_KEY_FILE`), so N
 
 ## Not done
 
-- **Conformance.** Done for six modules as native ARM64: this build matches MetalSharp Wine 6.0 unit for unit, and six fixes took 86 failures away. See `CONFORMANCE.md`. The x86_64 and i386 test builds have not been run.
-- **Signing.** This build is ad-hoc signed: x86_64 and ARM64 only, 16K pages. i386 programs cannot start, which shows during prefix creation as two failed Mono helper programs (`removeuserinstalls-x86.exe`, `installinf-x86.exe`) and leaves Wine Mono uninstalled in the prefix.
+- **Conformance.** Done for six modules, native ARM64 and i386: this build matched MetalSharp Wine 6.0 unit for unit, and with signing and fourteen fixes native ARM64 went from 556 failures to 227, every unit finishing except an upstream test bug. See `CONFORMANCE.md`. The x86_64 test builds have not been run, and the first i386 run has open problems.
+- **Signing.** `make app` with `SIGN_IDENTITY` and `PROFILE` builds the Developer ID bundle (4K pages, the low 4GB, i386); without them it is ad hoc (16K pages, no i386, and two Mono helper programs fail during prefix creation). The Developer ID bundle is not notarized.
 - **Version string.** 6.0 reports `wine-11.20-139-g702b230e88d`; this build reports `wine-11.20`, because Wine is built in a copy of the submodule without its git data.
 - **`make tests`** stops at one program (below).
 - **The toolchain** is still cloned from an existing MetalSharp Wine tree.

@@ -48,10 +48,19 @@ What builds, what was run and what is left is in `docs/macos/`: `M1-STATUS.md` (
 
 `dist/files` has everything MetalSharp Wine 6.0 ships: Wine, FEX, Mullion, WineMetalGL, WFDXCompat, DXVK-MacOS, VKD3D-Proton-MacOS with MoltenVK 1.4.3, innoextract, cabextract, and the files `wine.inf` installs into a prefix. On top of that it has Proton's launcher, the per-game rules database, and `belauncher.exe`.
 
+## Signing
+
+`make app` builds the application bundle. Without arguments it is signed ad hoc, and runs x86_64 and ARM64 programs on 16K pages, with no i386. A Developer ID build has 4K pages, the low 4GB and i386:
+
+```bash
+make app SIGN_IDENTITY="Developer ID Application: <name> (<team>)" PROFILE=<path>/MetalSharp_Wine.provisionprofile
+```
+
+The provisioning profile carries the cross-architecture entitlement for `com.metalsharp.wine`, so the bundle keeps that identifier. Run Windows programs through `Contents/MacOS/wine` in the bundle; the loose `dist/files` tree is not signed for them.
+
 Not done yet:
 
-- A Developer ID build. `make app` builds and signs the application bundle, ad hoc unless `SIGN_IDENTITY` and `PROFILE` are given. An ad-hoc build runs x86_64 and ARM64 programs on 16K pages, and no i386.
-- The Wine branch with Proton's changes (`proton-macos` in the `wine` submodule) is local only.
+- Notarization. A Developer ID build runs from the command line; Gatekeeper rejects it when opened from the Finder until it is notarized (`xcrun notarytool submit`, then `xcrun stapler staple`).
 - Native make rules in place of the wrapped scripts, and building the llvm-mingw toolchain from nothing.
 
 Packaging needs a macOS 15 SDK (`make MACOS15_SDK=<path>/MacOSX15.x.sdk`); Xcode only carries the current one.
