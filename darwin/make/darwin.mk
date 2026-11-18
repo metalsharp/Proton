@@ -31,7 +31,8 @@ J := $(shell sysctl -n hw.ncpu)
 RUN = cd $(OBJ) && env ROOT=$(OBJ) zsh $(OBJ)/scripts
 
 .PHONY: default all dist redist deploy clean-dist check-host root toolchain source deps wine fex payloads tests \
-        audit module help targets addons mullion winemetalgl wfdxcompat linuxhost dxvk vkd3d tools app
+        audit module help targets addons mullion winemetalgl wfdxcompat linuxhost dxvk vkd3d kosmickrisp zink metalvr \
+        tools app
 default: all
 .DEFAULT_GOAL := default
 all: dist
@@ -180,12 +181,18 @@ payloads: $(STAMPS)/payloads
 ##   dxvk          DXVK-MacOS: Direct3D 9/10/11 on MoltenVK, opt-in
 ##   vkd3d         VKD3D-Proton-MacOS: Direct3D 12 on MoltenVK, opt-in, with its own DXGI, D3D10/11, NGX core and
 ##                 NVAPI, and MetalSharp's MoltenVK 1.4.3, which replaces the 1.4.2 from the dependencies
+##   kosmickrisp   Mesa's KosmicKrisp: Vulkan on Metal, which the launcher gives the Vulkan loader in MoltenVK's
+##                 place with SharpVK_Switch=1 (the Mesa source and its build tools: scripts/build-kosmickrisp.sh)
+##   zink          Mesa's Zink: OpenGL on Vulkan, whose opengl32.dll ntdll serves in WineMetalGL's place with
+##                 SharpGL_Switch=1 (lib/zink)
+##   metalvr       MetalVR (the metalvr submodule): the OpenXR runtime for VR games on Mullion and metalvrd, which
+##                 streams them to a headset (needs cargo)
 ##   tools         innoextract and cabextract
 ## Each builds inside its source tree, so the build uses a git worktree of the submodule under src/,
 ## which keeps the submodule itself clean. `make ADDONS=` builds without them.
 ##
 
-ADDONS ?= mullion winemetalgl wfdxcompat linuxhost dxvk vkd3d tools
+ADDONS ?= mullion winemetalgl wfdxcompat linuxhost dxvk vkd3d kosmickrisp zink metalvr tools
 
 # addon-source <submodule> <name under src/>
 define addon-source
@@ -205,6 +212,7 @@ $(eval $(call addon-source,winemetalgl,winemetalgl))
 $(eval $(call addon-source,wfdxcompat,wfdxcompat))
 $(eval $(call addon-source,dxvk,dxvk-macos))
 $(eval $(call addon-source,vkd3d-proton,vkd3d-proton))
+$(eval $(call addon-source,metalvr,metalvr))
 
 # Static LLVM 15 libraries for Mullion's shader converter. build-llvm15.sh expects the LLVM source
 # already unpacked under deps/src/llvm15; an existing MetalSharp Wine tree has the built libraries.
@@ -280,6 +288,21 @@ $(STAMPS)/addon-vkd3d: $(STAMPS)/wine $(STAMPS)/addon-dxvk $(STAMPS)/source-vkd3
 	} > $(OBJ)/logs/addon-vkd3d.log 2>&1 || { tail -30 $(OBJ)/logs/addon-vkd3d.log; exit 1; }
 	touch $@
 
+$(STAMPS)/addon-kosmickrisp: $(STAMPS)/wine
+	@echo ":: kosmickrisp (logs/addon-kosmickrisp.log)"
+	$(RUN)/build-kosmickrisp.sh > $(OBJ)/logs/addon-kosmickrisp.log 2>&1 || { tail -25 $(OBJ)/logs/addon-kosmickrisp.log; exit 1; }
+	touch $@
+
+$(STAMPS)/addon-zink: $(STAMPS)/addon-kosmickrisp
+	@echo ":: zink (logs/addon-zink.log)"
+	$(RUN)/build-zink.sh > $(OBJ)/logs/addon-zink.log 2>&1 || { tail -25 $(OBJ)/logs/addon-zink.log; exit 1; }
+	touch $@
+
+$(STAMPS)/addon-metalvr: $(STAMPS)/addon-mullion $(STAMPS)/source-metalvr
+	@echo ":: metalvr (logs/addon-metalvr.log)"
+	$(RUN)/build-metalvr.sh > $(OBJ)/logs/addon-metalvr.log 2>&1 || { tail -25 $(OBJ)/logs/addon-metalvr.log; exit 1; }
+	touch $@
+
 $(STAMPS)/addon-tools: $(STAMPS)/deps
 	@for d in innoextract cabextract; do \
 	  if [ -d $(SEED)/downloads/$$d ] && [ ! -d $(OBJ)/downloads/$$d ]; then \
@@ -298,6 +321,9 @@ winemetalgl: $(STAMPS)/addon-winemetalgl
 wfdxcompat: $(STAMPS)/addon-wfdxcompat
 linuxhost: $(STAMPS)/addon-linuxhost
 dxvk: $(STAMPS)/addon-dxvk
+kosmickrisp: $(STAMPS)/addon-kosmickrisp
+zink: $(STAMPS)/addon-zink
+metalvr: $(STAMPS)/addon-metalvr
 vkd3d: $(STAMPS)/addon-vkd3d
 tools: $(STAMPS)/addon-tools
 

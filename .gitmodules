@@ -95,3 +95,6 @@
 	path = darwin/metalsharp-wine
 	url = https://github.com/metalsharp/MetalSharp-Wine.git
 	branch = main
+[submodule "metalvr"]
+	path = metalvr
+	url = https://github.com/metalsharp/MetalVR.git
